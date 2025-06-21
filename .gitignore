@@ -1,0 +1,16 @@
+# Node.js
+node_modules/
+.env
+
+# Logs
+logs/
+*.log
+
+# SQLite
+database.db
+*.sqlite
+*.sqlite3
+
+# OS
+.DS_Store
+Thumbs.db

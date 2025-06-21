@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ToDo App з Авторизацією</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    };
+  </script>
+</head>
+
+<body class="bg-gray-100 dark:bg-gray-900 text-black dark:text-white min-h-screen flex items-center justify-center p-4">
+  <!-- 🔐 Авторизація -->
+  <div
+    class="bg-white dark:bg-gray-800 p-4 sm:p-6 md:p-8 lg:p-10 rounded-xl shadow-xl w-full
+           sm:w-[90%] md:w-[85%] lg:w-[80%] xl:w-[70%] 2xl:w-[60%]
+           max-w-md sm:max-w-lg md:max-w-xl lg:max-w-4xl hidden"
+    id="authContainer"
+  >
+    <h2 class="text-xl font-bold mb-4 text-center">🔐 Увійти або зареєструватися</h2>
+    <div class="flex justify-end mb-4">
+      <button id="toggleThemeBtn" class="text-sm text-gray-500 hover:text-black dark:text-gray-300 dark:hover:text-white">
+        🌓 Тема
+      </button>
+    </div>
+
+    <input id="username" type="text" placeholder="Логін"
+      class="w-full mb-2 p-2 border rounded bg-white text-black placeholder-gray-500
+             dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 border-gray-300 dark:border-gray-600" />
+
+    <input id="password" type="password" placeholder="Пароль"
+      class="w-full mb-2 p-2 border rounded bg-white text-black placeholder-gray-500
+             dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 border-gray-300 dark:border-gray-600" />
+
+    <div class="flex justify-between">
+      <button id="loginBtn"
+        class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Увійти</button>
+      <button id="registerBtn"
+        class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Реєстрація</button>
+    </div>
+    <p id="authMessage" class="text-center text-red-500 mt-2"></p>
+  </div>
+
+  <!-- ✅ Список справ -->
+  <div
+    class="bg-white dark:bg-gray-800 p-4 sm:p-6 md:p-8 lg:p-10 rounded-xl shadow-xl w-full
+           sm:w-[90%] md:w-[85%] lg:w-[80%] xl:w-[70%] 2xl:w-[60%]
+           max-w-md sm:max-w-lg md:max-w-xl lg:max-w-4xl hidden"
+    id="appContainer"
+  >
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-2xl font-bold">📝 Список справ</h1>
+      <div class="flex items-center space-x-4">
+        <button id="toggleThemeBtnApp" class="text-sm text-gray-500 hover:text-black dark:text-gray-300 dark:hover:text-white">🌓 Тема</button>
+        <button id="logoutBtn" class="text-sm text-red-500 hover:underline">Вийти</button>
+      </div>
+    </div>
+
+    <div class="flex mb-4">
+      <input id="taskInput" type="text" placeholder="Нове завдання..."
+        class="flex-grow border rounded-l-xl px-3 py-2 focus:outline-none text-base sm:text-lg
+               bg-white text-black placeholder-gray-500
+               dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 border-gray-300 dark:border-gray-600" />
+
+      <button id="addTaskBtn"
+        class="bg-blue-500 text-white px-4 rounded-r-xl hover:bg-blue-600 text-base sm:text-lg">Додати</button>
+    </div>
+
+    <div class="mb-4 flex justify-center space-x-4 flex-wrap">
+      <button id="filterAll"
+        class="px-3 py-1 rounded bg-blue-500 text-white mb-2 sm:mb-0">Всі</button>
+      <button id="filterActive"
+        class="px-3 py-1 rounded bg-gray-300 hover:bg-gray-400 text-black dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white mb-2 sm:mb-0">Активні</button>
+      <button id="filterCompleted"
+        class="px-3 py-1 rounded bg-gray-300 hover:bg-gray-400 text-black dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white mb-2 sm:mb-0">Виконані</button>
+    </div>
+
+    <ul id="taskList" class="space-y-2 max-w-xl sm:max-w-2xl md:max-w-3xl mx-auto px-2 sm:px-4 md:px-6"></ul>
+  </div>
+
+  <script>
+    const authContainer = document.getElementById('authContainer');
+    const appContainer = document.getElementById('appContainer');
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const authMessage = document.getElementById('authMessage');
+
+    const loginBtn = document.getElementById('loginBtn');
+    const registerBtn = document.getElementById('registerBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    const taskInput = document.getElementById('taskInput');
+    const addTaskBtn = document.getElementById('addTaskBtn');
+    const taskList = document.getElementById('taskList');
+
+    const filterAllBtn = document.getElementById('filterAll');
+    const filterActiveBtn = document.getElementById('filterActive');
+    const filterCompletedBtn = document.getElementById('filterCompleted');
+
+    let currentFilter = 'all';
+
+    function showApp() {
+      authContainer.classList.add('hidden');
+      appContainer.classList.remove('hidden');
+    }
+
+    function showLogin() {
+      appContainer.classList.add('hidden');
+      authContainer.classList.remove('hidden');
+    }
+
+    async function loginOrRegister(type) {
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value;
+      if (!username || !password) return;
+
+      const res = await fetch(`/${type}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.token) {
+        localStorage.setItem('token', data.token);
+        showApp();
+        await renderTasks();
+      } else {
+        authMessage.textContent = data.error || 'Помилка';
+      }
+    }
+
+    loginBtn.addEventListener('click', () => loginOrRegister('login'));
+    registerBtn.addEventListener('click', () => loginOrRegister('register'));
+
+    logoutBtn.addEventListener('click', () => {
+      localStorage.removeItem('token');
+      showLogin();
+    });
+
+    async function fetchTasks() {
+      const res = await fetch('/todos', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (!res.ok) {
+        logoutBtn.click();
+        return [];
+      }
+      return res.json();
+    }
+
+    async function addTask(text) {
+      const res = await fetch('/todos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ text })
+      });
+      return res.json();
+    }
+
+    async function updateTask(id, completed, text) {
+      await fetch(`/todos/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ completed, text })
+      });
+    }
+
+    async function deleteTask(id) {
+      await fetch(`/todos/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+    }
+
+    async function renderTasks() {
+      const tasks = await fetchTasks();
+
+      let filteredTasks = tasks;
+      if (currentFilter === 'active') {
+        filteredTasks = tasks.filter(t => !t.completed);
+      } else if (currentFilter === 'completed') {
+        filteredTasks = tasks.filter(t => t.completed);
+      }
+
+      taskList.innerHTML = '';
+
+      filteredTasks.forEach(task => {
+        const li = document.createElement('li');
+        li.className = 'flex flex-col sm:flex-row justify-between items-start sm:items-center p-3 bg-gray-200 rounded-xl dark:bg-gray-700';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = !!task.completed;
+        checkbox.className = 'mb-2 sm:mb-0 mr-0 sm:mr-3 cursor-pointer';
+        checkbox.addEventListener('change', async () => {
+          await updateTask(task.id, checkbox.checked, undefined);
+          await renderTasks();
+        });
+
+        const leftDiv = document.createElement('div');
+        leftDiv.className = 'flex items-center flex-grow cursor-text';
+
+        const span = document.createElement('span');
+        span.textContent = task.text;
+        span.className = 'flex-grow cursor-text text-gray-800 dark:text-gray-200 text-base sm:text-lg';
+
+        if (task.completed) {
+          span.classList.add('line-through', 'text-gray-400', 'dark:text-gray-600');
+        }
+
+        span.addEventListener('click', () => {
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.value = task.text;
+          input.className = 'w-full px-1 rounded bg-white text-sm border border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600';
+
+          const save = async () => {
+            const newText = input.value.trim();
+            if (newText && newText !== task.text) {
+              await updateTask(task.id, undefined, newText);
+            }
+            await renderTasks();
+          };
+
+          input.addEventListener('blur', save);
+          input.addEventListener('keypress', e => {
+            if (e.key === 'Enter') input.blur();
+          });
+
+          leftDiv.replaceChild(input, span);
+          input.focus();
+        });
+
+        leftDiv.appendChild(checkbox);
+        leftDiv.appendChild(span);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = '✕';
+        deleteBtn.className = 'text-red-500 hover:text-red-700 text-xl mt-2 sm:mt-0 ml-0 sm:ml-2 self-end sm:self-auto';
+        deleteBtn.addEventListener('click', async () => {
+          await deleteTask(task.id);
+          await renderTasks();
+        });
+
+        li.appendChild(leftDiv);
+        li.appendChild(deleteBtn);
+        taskList.appendChild(li);
+      });
+    }
+
+    addTaskBtn.addEventListener('click', async () => {
+      const text = taskInput.value.trim();
+      if (text) {
+        await addTask(text);
+        taskInput.value = '';
+        await renderTasks();
+      }
+    });
+
+    taskInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') addTaskBtn.click();
+    });
+
+    filterAllBtn.addEventListener('click', () => {
+      currentFilter = 'all';
+      updateFilterButtons();
+      renderTasks();
+    });
+    filterActiveBtn.addEventListener('click', () => {
+      currentFilter = 'active';
+      updateFilterButtons();
+      renderTasks();
+    });
+    filterCompletedBtn.addEventListener('click', () => {
+      currentFilter = 'completed';
+      updateFilterButtons();
+      renderTasks();
+    });
+
+    function updateFilterButtons() {
+      const filters = [
+        { btn: filterAllBtn, name: 'all' },
+        { btn: filterActiveBtn, name: 'active' },
+        { btn: filterCompletedBtn, name: 'completed' }
+      ];
+
+      filters.forEach(({ btn, name }) => {
+        btn.className = 'px-3 py-1 rounded mb-2 sm:mb-0 text-black dark:text-white bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600';
+
+        if (currentFilter === name) {
+          btn.classList.remove('bg-gray-300', 'hover:bg-gray-400', 'dark:bg-gray-700', 'dark:hover:bg-gray-600');
+          btn.classList.add(
+            'bg-blue-500',
+            'text-white',
+            'ring-2',
+            'ring-blue-300',
+            'dark:ring-blue-400',
+            'shadow-sm'
+          );
+        }
+      });
+    }
+
+    // Ініціалізація теми та кнопок перемикання
+    const toggleThemeBtn = document.getElementById('toggleThemeBtn');
+    const toggleThemeBtnApp = document.getElementById('toggleThemeBtnApp');
+
+    function toggleTheme() {
+      const html = document.documentElement;
+      const isDark = html.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    }
+
+    toggleThemeBtn.addEventListener('click', toggleTheme);
+    toggleThemeBtnApp.addEventListener('click', toggleTheme);
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const res = await fetch('/todos', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            showApp();
+            updateFilterButtons();
+            await renderTasks();
+            return;
+          } else {
+            localStorage.removeItem('token');
+          }
+        } catch (e) {
+          console.error('Помилка при перевірці токена:', e);
+          localStorage.removeItem('token');
+        }
+      }
+      showLogin();
+
+      // Ініціалізація теми при завантаженні сторінки
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else if (savedTheme === 'light') {
+        document.documentElement.classList.remove('dark');
+      } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.classList.add('dark');
+      }
+    });
+  </script>
+</body>
+</html>
